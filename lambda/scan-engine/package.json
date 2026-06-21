@@ -1,0 +1,19 @@
+{
+  "name": "siteguardian-scan-engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test-local": "node test-local.mjs"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.0",
+    "lighthouse": "^12.6.0",
+    "playwright-core": "^1.52.0",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
