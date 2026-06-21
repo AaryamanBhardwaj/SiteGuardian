@@ -11,12 +11,12 @@ const CHROMIUM_PATH =
 const IS_LAMBDA = !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 const CHROME_FLAGS = [
-  "--headless=new",
+  ...(IS_LAMBDA ? [] : ["--headless=new"]),
   "--no-sandbox",
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
   "--disable-gpu",
-  ...(IS_LAMBDA ? ["--single-process", "--no-zygote"] : []),
+  ...(IS_LAMBDA ? ["--no-zygote"] : []),
   "--disable-extensions",
   "--disable-background-networking",
   "--disable-default-apps",
