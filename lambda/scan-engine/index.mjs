@@ -105,15 +105,15 @@ async function runAccessibility(page) {
   const penalty = violations.reduce((sum, v) => {
     const weight =
       v.impact === "critical"
-        ? 15
+        ? 3
         : v.impact === "serious"
-          ? 10
+          ? 2
           : v.impact === "moderate"
-            ? 5
-            : 2;
-    return sum + weight * v.count;
+            ? 1
+            : 0.5;
+    return sum + weight;
   }, 0);
-  const accessibilityScore = Math.max(0, 100 - penalty);
+  const accessibilityScore = Math.max(0, Math.round(100 - penalty));
 
   return { accessibilityScore, violationCount, violations };
 }

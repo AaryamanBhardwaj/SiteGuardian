@@ -201,8 +201,14 @@ export default function ProjectDetailPage() {
                 {latestScan.performanceScore}
               </div>
               <div className="text-[10px] text-foreground/30 mt-1">out of 100</div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
-                Google Lighthouse speed score. 90+ is good, 50-89 needs work, below 50 is poor.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-64 z-10 shadow-lg">
+                <div className="font-semibold mb-1.5">Page Speed Score</div>
+                <div className="text-[11px] leading-relaxed mb-2 text-gray-300">How fast your page loads and becomes interactive, measured by Google Lighthouse.</div>
+                <div className="space-y-0.5 text-[11px]">
+                  <div className="flex justify-between"><span className="text-green-400">90 – 100</span><span className="text-gray-400">Fast</span></div>
+                  <div className="flex justify-between"><span className="text-yellow-400">50 – 89</span><span className="text-gray-400">Needs improvement</span></div>
+                  <div className="flex justify-between"><span className="text-red-400">0 – 49</span><span className="text-gray-400">Slow</span></div>
+                </div>
               </div>
             </div>
             <div className="bg-surface rounded-xl border border-border p-4 group relative">
@@ -211,8 +217,14 @@ export default function ProjectDetailPage() {
                 {latestScan.accessibilityScore}
               </div>
               <div className="text-[10px] text-foreground/30 mt-1">out of 100</div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
-                How usable your site is for people with disabilities. 90+ is good.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-64 z-10 shadow-lg">
+                <div className="font-semibold mb-1.5">Accessibility Score</div>
+                <div className="text-[11px] leading-relaxed mb-2 text-gray-300">How usable your site is for people with disabilities (screen readers, keyboard navigation, color contrast).</div>
+                <div className="space-y-0.5 text-[11px]">
+                  <div className="flex justify-between"><span className="text-green-400">90 – 100</span><span className="text-gray-400">Excellent</span></div>
+                  <div className="flex justify-between"><span className="text-yellow-400">50 – 89</span><span className="text-gray-400">Some issues</span></div>
+                  <div className="flex justify-between"><span className="text-red-400">0 – 49</span><span className="text-gray-400">Major issues</span></div>
+                </div>
               </div>
             </div>
             <div className="bg-surface rounded-xl border border-border p-4 group relative">
@@ -223,8 +235,14 @@ export default function ProjectDetailPage() {
                 {latestScan.lcp !== null ? `${latestScan.lcp}s` : "—"}
               </div>
               <div className="text-[10px] text-foreground/30 mt-1">LCP (largest element)</div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-56 z-10 text-center">
-                Largest Contentful Paint — time to load the biggest visible element. Under 2.5s is good, over 4s is poor.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-64 z-10 shadow-lg">
+                <div className="font-semibold mb-1.5">Largest Contentful Paint</div>
+                <div className="text-[11px] leading-relaxed mb-2 text-gray-300">Time until the biggest visible element (hero image, heading) finishes loading.</div>
+                <div className="space-y-0.5 text-[11px]">
+                  <div className="flex justify-between"><span className="text-green-400">&lt; 2.5s</span><span className="text-gray-400">Fast</span></div>
+                  <div className="flex justify-between"><span className="text-yellow-400">2.5s – 4s</span><span className="text-gray-400">Moderate</span></div>
+                  <div className="flex justify-between"><span className="text-red-400">&gt; 4s</span><span className="text-gray-400">Slow</span></div>
+                </div>
               </div>
             </div>
             <div className="bg-surface rounded-xl border border-border p-4 group relative">
@@ -237,8 +255,14 @@ export default function ProjectDetailPage() {
                 {latestScan.violationCount}
               </div>
               <div className="text-[10px] text-foreground/30 mt-1">accessibility issues</div>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
-                Number of accessibility problems found (e.g. missing alt text, low contrast). 0 is ideal.
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-64 z-10 shadow-lg">
+                <div className="font-semibold mb-1.5">Accessibility Violations</div>
+                <div className="text-[11px] leading-relaxed mb-2 text-gray-300">Issues like missing alt text, poor contrast, or broken ARIA attributes that make your site harder to use.</div>
+                <div className="space-y-0.5 text-[11px]">
+                  <div className="flex justify-between"><span className="text-green-400">0</span><span className="text-gray-400">No issues found</span></div>
+                  <div className="flex justify-between"><span className="text-yellow-400">1 – 5</span><span className="text-gray-400">Minor issues</span></div>
+                  <div className="flex justify-between"><span className="text-red-400">6+</span><span className="text-gray-400">Needs attention</span></div>
+                </div>
               </div>
             </div>
           </div>

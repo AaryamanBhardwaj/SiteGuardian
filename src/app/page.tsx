@@ -2,8 +2,20 @@
 
 import { useState } from "react";
 
-const SCAN_API_URL =
-  process.env.NEXT_PUBLIC_SCAN_API_URL || "http://localhost:4000/scan";
+const SCAN_API_URL = "/api/scan";
+
+const SCORE_TOOLTIPS: Record<string, { title: string; desc: string; ranges: [string, string][] }> = {
+  Performance: {
+    title: "Page Speed Score",
+    desc: "How fast your page loads and becomes interactive, measured by Google Lighthouse.",
+    ranges: [["90 – 100", "Fast"], ["50 – 89", "Needs improvement"], ["0 – 49", "Slow"]],
+  },
+  Accessibility: {
+    title: "Accessibility Score",
+    desc: "How usable your site is for people with disabilities (screen readers, keyboard navigation, color contrast).",
+    ranges: [["90 – 100", "Excellent"], ["50 – 89", "Some issues"], ["0 – 49", "Major issues"]],
+  },
+};
 
 function ScoreCard({
   label,
@@ -23,13 +35,29 @@ function ScoreCard({
           ? "text-warning"
           : "text-danger";
 
+  const tip = SCORE_TOOLTIPS[label];
+
   return (
-    <div className="bg-surface rounded-xl p-6 border border-border">
+    <div className="bg-surface rounded-xl p-6 border border-border group relative">
       <div className="text-2xl mb-2">{icon}</div>
       <div className="text-sm text-foreground/60 mb-1">{label}</div>
       <div className={`text-3xl font-bold ${color}`}>
         {score !== null ? score : "—"}
       </div>
+      {tip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-64 z-10 shadow-lg">
+          <div className="font-semibold mb-1.5">{tip.title}</div>
+          <div className="text-[11px] leading-relaxed mb-2 text-gray-300">{tip.desc}</div>
+          <div className="space-y-0.5 text-[11px]">
+            {tip.ranges.map(([range, label], i) => (
+              <div key={range} className="flex justify-between">
+                <span className={i === 0 ? "text-green-400" : i === 1 ? "text-yellow-400" : "text-red-400"}>{range}</span>
+                <span className="text-gray-400">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
