@@ -8,6 +8,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { createRemoteJWKSigner, verifyToken } from "./auth.mjs";
 import { explainRegression } from "./gemini.mjs";
 import { computeVisualDiff } from "./visual-diff.mjs";
@@ -16,6 +17,7 @@ import { sendRegressionAlert } from "./alerts.mjs";
 const client = new DynamoDBClient({});
 const ddb = DynamoDBDocumentClient.from(client);
 const s3 = new S3Client({});
+const lambdaClient = new LambdaClient({});
 
 const TABLES = {
   projects: process.env.PROJECTS_TABLE || "SiteGuardian-Projects",
@@ -229,7 +231,7 @@ function detectRegressions(current, previous) {
   return regressions;
 }
 
-async function triggerScanNow(userId, projectId) {
+async function triggerScanNow(userId, projectId, body) {
   const project = await ddb.send(
     new GetCommand({ TableName: TABLES.projects, Key: { projectId } }),
   );
@@ -237,23 +239,10 @@ async function triggerScanNow(userId, projectId) {
     return cors({ error: "Project not found" }, 404);
   }
 
-  const scanEngineUrl = getScanEngineUrl();
-  if (!scanEngineUrl) {
-    return cors({ error: "Scan engine not configured" }, 503);
+  const scanData = body?.scanData;
+  if (!scanData || scanData.performanceScore === undefined) {
+    return cors({ error: "Missing scanData in request body" }, 400);
   }
-
-  const res = await fetch(scanEngineUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: project.Item.url }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    return cors({ error: `Scan failed: ${err.error || res.status}` }, 502);
-  }
-
-  const scanData = await res.json();
   const scanTimestamp = scanData.scannedAt || new Date().toISOString();
 
   let screenshotS3Key = null;
@@ -436,7 +425,7 @@ export async function handler(event) {
   // /projects/:id/scan-now (trigger manual scan)
   const scanNowMatch = path.match(/^\/projects\/([^/]+)\/scan-now$/);
   if (scanNowMatch && method === "POST") {
-    return triggerScanNow(userId, scanNowMatch[1]);
+    return triggerScanNow(userId, scanNowMatch[1], body);
   }
 
   // /projects/:id/scans

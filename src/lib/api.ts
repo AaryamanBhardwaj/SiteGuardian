@@ -108,6 +108,27 @@ export interface ScanNowResult extends ScanResult {
   }[];
 }
 
-export function triggerScanNow(projectId: string): Promise<ScanNowResult> {
-  return apiFetch(`/projects/${projectId}/scan-now`, { method: "POST" });
+const SCAN_API_URL =
+  process.env.NEXT_PUBLIC_SCAN_API_URL || "http://localhost:4000/scan";
+
+export async function triggerScanNow(
+  projectId: string,
+): Promise<ScanNowResult> {
+  const project = await getProject(projectId);
+
+  const scanRes = await fetch(SCAN_API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: project.url }),
+  });
+  if (!scanRes.ok) {
+    const err = await scanRes.json().catch(() => ({}));
+    throw new Error(err.error || `Scan failed: ${scanRes.status}`);
+  }
+  const scanData = await scanRes.json();
+
+  return apiFetch(`/projects/${projectId}/scan-now`, {
+    method: "POST",
+    body: JSON.stringify({ scanData }),
+  });
 }
