@@ -195,27 +195,39 @@ export default function ProjectDetailPage() {
         {/* Latest scan summary */}
         {latestScan ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <div className="bg-surface rounded-xl border border-border p-4">
-              <div className="text-xs text-foreground/50 uppercase">Perf</div>
+            <div className="bg-surface rounded-xl border border-border p-4 group relative">
+              <div className="text-xs text-foreground/50 uppercase">Performance</div>
               <div className={`text-2xl font-bold ${scoreColor(latestScan.performanceScore)}`}>
                 {latestScan.performanceScore}
               </div>
+              <div className="text-[10px] text-foreground/30 mt-1">out of 100</div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
+                Google Lighthouse speed score. 90+ is good, 50-89 needs work, below 50 is poor.
+              </div>
             </div>
-            <div className="bg-surface rounded-xl border border-border p-4">
-              <div className="text-xs text-foreground/50 uppercase">A11y</div>
+            <div className="bg-surface rounded-xl border border-border p-4 group relative">
+              <div className="text-xs text-foreground/50 uppercase">Accessibility</div>
               <div className={`text-2xl font-bold ${scoreColor(latestScan.accessibilityScore)}`}>
                 {latestScan.accessibilityScore}
               </div>
+              <div className="text-[10px] text-foreground/30 mt-1">out of 100</div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
+                How usable your site is for people with disabilities. 90+ is good.
+              </div>
             </div>
-            <div className="bg-surface rounded-xl border border-border p-4">
-              <div className="text-xs text-foreground/50 uppercase">LCP</div>
+            <div className="bg-surface rounded-xl border border-border p-4 group relative">
+              <div className="text-xs text-foreground/50 uppercase">Load Time</div>
               <div
                 className={`text-2xl font-bold font-mono ${latestScan.lcp !== null ? lcpColor(latestScan.lcp) : ""}`}
               >
                 {latestScan.lcp !== null ? `${latestScan.lcp}s` : "—"}
               </div>
+              <div className="text-[10px] text-foreground/30 mt-1">LCP (largest element)</div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-56 z-10 text-center">
+                Largest Contentful Paint — time to load the biggest visible element. Under 2.5s is good, over 4s is poor.
+              </div>
             </div>
-            <div className="bg-surface rounded-xl border border-border p-4">
+            <div className="bg-surface rounded-xl border border-border p-4 group relative">
               <div className="text-xs text-foreground/50 uppercase">
                 Violations
               </div>
@@ -223,6 +235,10 @@ export default function ProjectDetailPage() {
                 className={`text-2xl font-bold ${latestScan.violationCount === 0 ? "text-success" : "text-danger"}`}
               >
                 {latestScan.violationCount}
+              </div>
+              <div className="text-[10px] text-foreground/30 mt-1">accessibility issues</div>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none w-52 z-10 text-center">
+                Number of accessibility problems found (e.g. missing alt text, low contrast). 0 is ideal.
               </div>
             </div>
           </div>
@@ -251,13 +267,13 @@ export default function ProjectDetailPage() {
                   </span>
                   <div className="flex gap-4 text-sm">
                     <span className={`font-mono font-medium ${scoreColor(scan.performanceScore)}`}>
-                      Perf {scan.performanceScore}
+                      Perf {scan.performanceScore}/100
                     </span>
                     <span className={`font-mono font-medium ${scoreColor(scan.accessibilityScore)}`}>
-                      A11y {scan.accessibilityScore}
+                      Access {scan.accessibilityScore}/100
                     </span>
                     <span className={`font-mono ${scan.lcp !== null ? lcpColor(scan.lcp) : "text-foreground/40"}`}>
-                      LCP {scan.lcp !== null ? `${scan.lcp}s` : "—"}
+                      Load {scan.lcp !== null ? `${scan.lcp}s` : "—"}
                     </span>
                     <span className="font-mono text-foreground/40">
                       CLS {scan.cls !== null ? scan.cls : "—"}
@@ -324,7 +340,7 @@ export default function ProjectDetailPage() {
                     </p>
                   ) : (
                     <p className="text-sm text-foreground/30 mt-2 ml-7 italic">
-                      AI explanation unavailable — configure Gemini API key in SSM to enable.
+                      AI explanation not available for this regression.
                     </p>
                   )}
                 </div>

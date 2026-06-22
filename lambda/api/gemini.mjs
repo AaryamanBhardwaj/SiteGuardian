@@ -18,7 +18,7 @@ const RATE_LIMIT_TABLE =
 const SSM_KEY_NAME =
   process.env.GEMINI_SSM_KEY || "/siteguardian/gemini-api-key";
 const DAILY_LIMIT = parseInt(process.env.GEMINI_DAILY_LIMIT || "50", 10);
-const GEMINI_MODEL = "gemini-2.0-flash-lite";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 let cachedApiKey = null;
@@ -137,8 +137,9 @@ async function callGemini(prompt, apiKey) {
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        maxOutputTokens: 200,
+        maxOutputTokens: 1024,
         temperature: 0.3,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });
@@ -149,10 +150,9 @@ async function callGemini(prompt, apiKey) {
   }
 
   const data = await res.json();
-  return (
-    data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-    "No explanation generated."
-  );
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const textPart = parts.find((p) => p.text && !p.thought);
+  return textPart?.text?.trim() || "No explanation generated.";
 }
 
 export async function explainRegression(

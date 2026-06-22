@@ -108,8 +108,7 @@ export interface ScanNowResult extends ScanResult {
   }[];
 }
 
-const SCAN_API_URL =
-  process.env.NEXT_PUBLIC_SCAN_API_URL || "http://localhost:4000/scan";
+const SCAN_API_URL = "/api/scan";
 
 export async function triggerScanNow(
   projectId: string,
