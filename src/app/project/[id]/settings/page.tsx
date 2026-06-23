@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   getProject,
@@ -11,8 +10,9 @@ import {
 } from "@/lib/api";
 
 export default function ProjectSettingsPage() {
-  const params = useParams();
-  const projectId = params.id as string;
+  const projectId = typeof window !== "undefined"
+    ? window.location.pathname.split("/")[2] || ""
+    : "";
   const { isLoading: authLoading, isAuthenticated, signOut } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);

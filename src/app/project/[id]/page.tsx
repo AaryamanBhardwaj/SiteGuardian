@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
   getProject,
@@ -32,8 +31,9 @@ function parseEventDate(eventTimestamp: string): string {
 }
 
 export default function ProjectDetailPage() {
-  const params = useParams();
-  const projectId = params.id as string;
+  const projectId = typeof window !== "undefined"
+    ? window.location.pathname.split("/")[2] || ""
+    : "";
   const { isLoading: authLoading, isAuthenticated, email, signOut } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [scans, setScans] = useState<ScanResult[]>([]);
