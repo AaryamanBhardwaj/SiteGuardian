@@ -371,6 +371,64 @@ async function triggerScanNow(userId, projectId, body) {
   });
 }
 
+// --- Async scan ---
+
+const INSTANT_SCANS_TABLE = process.env.INSTANT_SCANS_TABLE || "SiteGuardian-InstantScans";
+
+async function startAsyncScan(body) {
+  const url = body?.url;
+  if (!url || typeof url !== "string") {
+    return cors({ error: "url is required" }, 400);
+  }
+  try {
+    new URL(url);
+  } catch {
+    return cors({ error: "Invalid URL" }, 400);
+  }
+
+  const scanId = `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  await ddb.send(
+    new PutCommand({
+      TableName: INSTANT_SCANS_TABLE,
+      Item: {
+        scanId,
+        url,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        ttl: Math.floor(Date.now() / 1000) + 3600,
+      },
+    }),
+  );
+
+  await lambdaClient.send(
+    new InvokeCommand({
+      FunctionName: process.env.SCAN_ENGINE_FUNCTION || "siteguardian-scan-engine",
+      InvocationType: "Event",
+      Payload: new TextEncoder().encode(
+        JSON.stringify({ scanId, url, async: true }),
+      ),
+    }),
+  );
+
+  return cors({ scanId, status: "pending" });
+}
+
+async function pollScanResult(scanId) {
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: INSTANT_SCANS_TABLE,
+      Key: { scanId },
+    }),
+  );
+
+  if (!result.Item) {
+    return cors({ error: "Scan not found" }, 404);
+  }
+
+  return cors(result.Item);
+}
+
 // --- Router ---
 
 export async function handler(event) {
@@ -381,11 +439,16 @@ export async function handler(event) {
   const method = event.requestContext?.http?.method || event.httpMethod || "GET";
   const path = event.rawPath || event.path || "/";
 
-  // Public endpoint: instant scan (no auth)
+  // Public endpoints: async scan (no auth)
   if (path === "/scan" && method === "POST") {
-    // Proxy to scan engine — in production this would invoke the scan Lambda directly
-    // For now, this endpoint is handled by the scan-engine Lambda separately
-    return cors({ error: "Use the scan engine endpoint directly" }, 400);
+    const scanBody =
+      typeof event.body === "string" ? JSON.parse(event.body || "{}") : event.body || {};
+    return startAsyncScan(scanBody);
+  }
+
+  const scanPollMatch = path.match(/^\/scan\/([^/]+)$/);
+  if (scanPollMatch && method === "GET") {
+    return pollScanResult(scanPollMatch[1]);
   }
 
   // All other routes require auth

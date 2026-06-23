@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const SCAN_API_URL = "/api/scan";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001";
 
 const SCORE_TOOLTIPS: Record<string, { title: string; desc: string; ranges: [string, string][] }> = {
   Performance: {
@@ -124,17 +124,29 @@ export default function LandingPage() {
     const timer = setInterval(() => setElapsed((t) => t + 1), 1000);
 
     try {
-      const res = await fetch(SCAN_API_URL, {
+      const startRes = await fetch(`${API_URL}/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || `Scan failed (${res.status})`);
+      const startData = await startRes.json();
+      if (!startRes.ok) {
+        throw new Error(startData.error || `Scan failed (${startRes.status})`);
       }
+
+      const { scanId } = startData;
+      const maxWait = 120000;
+      const interval = 3000;
+      const start = Date.now();
+      let data: ScanResult | null = null;
+      while (Date.now() - start < maxWait) {
+        const pollRes = await fetch(`${API_URL}/scan/${scanId}`);
+        const pollData = await pollRes.json();
+        if (pollData.status === "complete") { data = pollData.result; break; }
+        if (pollData.status === "failed") throw new Error(pollData.error || "Scan failed");
+        await new Promise((r) => setTimeout(r, interval));
+      }
+      if (!data) throw new Error("Scan timed out");
 
       setResult(data);
     } catch (err) {

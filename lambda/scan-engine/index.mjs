@@ -4,6 +4,11 @@ import { chromium } from "playwright-core";
 import AxeBuilder from "@axe-core/playwright";
 import lighthouse from "lighthouse";
 import sharp from "sharp";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+
+const ddbClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const INSTANT_SCANS_TABLE = process.env.INSTANT_SCANS_TABLE || "SiteGuardian-InstantScans";
 
 const CHROMIUM_PATH =
   process.env.CHROMIUM_PATH || "/usr/bin/chromium-browser";
@@ -128,11 +133,13 @@ async function captureScreenshot(page) {
 }
 
 export async function handler(event) {
-  let url;
+  let url, scanId, isAsync;
   try {
     const body =
       typeof event.body === "string" ? JSON.parse(event.body) : event;
     url = body.url;
+    scanId = body.scanId;
+    isAsync = body.async === true;
   } catch {
     return response(400, { error: "Invalid JSON body" });
   }
@@ -154,10 +161,8 @@ export async function handler(event) {
     chromeProc = launchChrome(port);
     await waitForCDP(port);
 
-    // 1. Run Lighthouse for performance metrics
     const lighthouseResults = await runLighthouse(url, port);
 
-    // 2. Connect Playwright via CDP for accessibility + screenshot
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
@@ -174,7 +179,7 @@ export async function handler(event) {
 
     const screenshotBase64 = screenshot.toString("base64");
 
-    return response(200, {
+    const scanResult = {
       url,
       scannedAt: new Date().toISOString(),
       performanceScore: lighthouseResults.performanceScore,
@@ -191,13 +196,39 @@ export async function handler(event) {
       violationCount: a11yResults.violationCount,
       violations: a11yResults.violations.slice(0, 10),
       screenshotBase64,
-    });
+    };
+
+    if (isAsync && scanId) {
+      await ddbClient.send(
+        new UpdateCommand({
+          TableName: INSTANT_SCANS_TABLE,
+          Key: { scanId },
+          UpdateExpression: "SET #s = :s, #r = :r",
+          ExpressionAttributeNames: { "#s": "status", "#r": "result" },
+          ExpressionAttributeValues: { ":s": "complete", ":r": scanResult },
+        }),
+      );
+      return;
+    }
+
+    return response(200, scanResult);
   } catch (err) {
     console.error("Scan failed:", err);
-    return response(500, {
-      error: "Scan failed",
-      message: err.message,
-    });
+
+    if (isAsync && scanId) {
+      await ddbClient.send(
+        new UpdateCommand({
+          TableName: INSTANT_SCANS_TABLE,
+          Key: { scanId },
+          UpdateExpression: "SET #s = :s, #e = :e",
+          ExpressionAttributeNames: { "#s": "status", "#e": "error" },
+          ExpressionAttributeValues: { ":s": "failed", ":e": err.message },
+        }),
+      ).catch(() => {});
+      return;
+    }
+
+    return response(500, { error: "Scan failed", message: err.message });
   } finally {
     if (browser) await browser.close().catch(() => {});
     if (chromeProc) {

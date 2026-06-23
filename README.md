@@ -5,7 +5,7 @@
 
 A full-stack website health monitoring platform that automatically tracks performance, accessibility, and visual regressions over time with AI-powered explanations when things break.
 
-**Live:** [https://jt48nb6una.us-east-1.awsapprunner.com](https://jt48nb6una.us-east-1.awsapprunner.com)
+**Live:** [https://d1fkdc03w6csjm.cloudfront.net](https://d1fkdc03w6csjm.cloudfront.net)
 
 ## Features
 
@@ -22,8 +22,8 @@ A full-stack website health monitoring platform that automatically tracks perfor
 
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| **Frontend** | Next.js 16 (App Router, standalone mode) | Server-side API routes + static pages in one framework |
-| **Frontend Hosting** | AWS App Runner (Docker from ECR) | Managed container hosting, auto-scaling, no server management |
+| **Frontend** | Next.js 16 (App Router) | Static pages with client-side routing |
+| **Frontend Hosting** | AWS S3 + CloudFront | Zero-cost static hosting with global CDN |
 | **Backend API** | AWS Lambda (Node.js 20) | Pay-per-request, zero idle cost |
 | **API Routing** | AWS API Gateway HTTP API | Routes HTTP requests to Lambda, handles CORS |
 | **Scan Engine** | AWS Lambda (Container image) | Runs headless Chrome + Lighthouse + axe-core; container needed because Chromium exceeds 50MB zip limit |
@@ -39,58 +39,52 @@ A full-stack website health monitoring platform that automatically tracks perfor
 ## Architecture
 
 ```
-                        ┌─────────────────────────────────────┐
-                        │       AWS App Runner                │
-                        │   ┌─────────────────────────────┐   │
-  User Browser ────────>│   │  Next.js Frontend           │   │
-                        │   │  (standalone Docker)         │   │
-                        │   │                             │   │
-                        │   │  /api/scan ──> Lambda SDK   │───┼──> Scan Engine Lambda
-                        │   │             (direct invoke) │   │    (Chrome + Lighthouse
-                        │   └─────────────────────────────┘   │     + axe-core)
-                        └─────────────────────────────────────┘
-                                        │
-                          Authenticated API calls
-                                        │
-                                        v
-                        ┌─────────────────────────────────────┐
-                        │   API Gateway HTTP API              │
-                        │   (CORS, routing, 30s timeout)      │
-                        └────────────────┬────────────────────┘
-                                         │
-                                         v
-                        ┌─────────────────────────────────────┐
-                        │   API Lambda (Node.js 20)           │
-                        │                                     │
-                        │   /projects     CRUD operations     │
-                        │   /scans        Scan history        │
-                        │   /regressions  Regression events   │
-                        │   /scan-now     Store results +     │
-                        │                 detect regressions  │
-                        │                 + AI explanation     │
-                        └──┬──────┬──────┬──────┬─────────────┘
-                           │      │      │      │
-              ┌────────────┘      │      │      └────────────┐
-              v                   v      v                   v
-        ┌──────────┐     ┌────────┐  ┌─────┐        ┌──────────┐
-        │ DynamoDB │     │   S3   │  │ SSM │        │   SES    │
-        │ 5 tables │     │ images │  │ key │        │  email   │
-        └──────────┘     └────────┘  └─────┘        └──────────┘
-                                        │
-                                        v
-                                 ┌──────────────┐
-                                 │ Gemini 2.5   │
-                                 │ Flash API    │
-                                 └──────────────┘
+  User Browser ──────> CloudFront CDN ──────> S3 Bucket
+  (static HTML/JS)         │                 (Next.js static pages)
+                           │
+             API calls (fetch from browser)
+                           │
+                           v
+              ┌─────────────────────────────────────┐
+              │   API Gateway HTTP API              │
+              │   (CORS, routing)                   │
+              └────────────────┬────────────────────┘
+                               │
+                               v
+              ┌─────────────────────────────────────┐
+              │   API Lambda (Node.js 20)           │
+              │                                     │
+              │   POST /scan      Start async scan  │──> Scan Engine Lambda
+              │   GET  /scan/:id  Poll results      │    (async invocation)
+              │   /projects       CRUD operations   │
+              │   /scans          Scan history      │
+              │   /regressions    Regression events │
+              │   /scan-now       Store results +   │
+              │                   detect regressions│
+              └──┬──────┬──────┬──────┬─────────────┘
+                 │      │      │      │
+    ┌────────────┘      │      │      └────────────┐
+    v                   v      v                   v
+┌──────────┐     ┌────────┐  ┌─────┐        ┌──────────┐
+│ DynamoDB │     │   S3   │  │ SSM │        │   SES    │
+│ 6 tables │     │ images │  │ key │        │  email   │
+└──────────┘     └────────┘  └─────┘        └──────────┘
+                                │
+                                v
+                         ┌──────────────┐
+                         │ Gemini 2.5   │
+                         │ Flash API    │
+                         └──────────────┘
 ```
 
-### Why App Runner calls the Scan Engine Lambda directly
+### Async Scan Pattern
 
-API Gateway has a hard 30-second timeout that cannot be increased. Some websites take 30+ seconds to scan (Lighthouse audit + screenshot). To avoid timeouts:
+API Gateway has a hard 30-second timeout. Some websites take 30+ seconds to scan. To handle this:
 
-1. The Next.js frontend has a server-side API route (`/api/scan`) that invokes the scan-engine Lambda directly via the AWS SDK
-2. App Runner has an IAM instance role with `lambda:InvokeFunction` permission
-3. This bypasses API Gateway entirely for scans — the Lambda can run for up to 120 seconds
+1. Frontend POSTs to `/scan` — API Lambda creates a pending record in DynamoDB and invokes Scan Engine Lambda asynchronously
+2. Scan Engine runs Lighthouse + axe-core, writes results back to DynamoDB when done
+3. Frontend polls `GET /scan/{scanId}` every 3 seconds until status is "complete"
+4. No timeout issues — the scan can run for up to 120 seconds
 
 ### Why API Gateway instead of Lambda Function URLs
 
@@ -106,7 +100,7 @@ Lambda Function URLs with `AuthType: NONE` are blocked at the account level (org
 | `siteguardian-scan-engine` | Container image | 2048 MB | 120s | Headless Chrome + Lighthouse + axe-core + screenshot capture |
 | `siteguardian-scheduler` | Node.js 20 (zip) | 512 MB | 120s | Automated scans triggered by EventBridge |
 
-### DynamoDB Tables (5)
+### DynamoDB Tables (6)
 
 All tables use on-demand (PAY_PER_REQUEST) billing — zero cost at rest.
 
@@ -117,14 +111,16 @@ All tables use on-demand (PAY_PER_REQUEST) billing — zero cost at rest.
 | `SiteGuardian-RegressionEvents` | PK: `projectId`, SK: `eventTimestamp#metric` | Detected regressions with before/after values and AI explanations |
 | `SiteGuardian-ExplanationCache` | PK: `signatureHash` | Cached AI explanations (30-day TTL) |
 | `SiteGuardian-RateLimitCounters` | PK: `dateKey` | Daily Gemini API call counter (2-day TTL) |
+| `SiteGuardian-InstantScans` | PK: `scanId` | Async scan jobs with TTL (1-hour expiry) |
 
 ### Other Services
 
 | Service | Resource | Purpose |
 |---------|----------|---------|
-| **App Runner** | `siteguardian-frontend` (0.25 vCPU, 512 MB) | Hosts the Next.js frontend container |
+| **S3** | `siteguardian-frontend-static` | Static frontend assets (HTML, JS, CSS) |
+| **CloudFront** | Distribution `EBRFAN8RNXDB3` | Global CDN with SPA fallback for client-side routing |
 | **API Gateway** | HTTP API | Routes API requests to Lambda, handles CORS |
-| **ECR** | `siteguardian-frontend`, `siteguardian-scan-engine` | Docker image repositories |
+| **ECR** | `siteguardian-scan-engine` | Scan engine Docker image repository |
 | **Cognito** | User Pool `SiteGuardian` | Email-based auth, JWT tokens |
 | **S3** | `siteguardian-screenshots` | Screenshot and visual diff storage |
 | **SSM** | `/siteguardian/gemini-api-key` (SecureString) | Gemini API key (encrypted, read at runtime) |
@@ -204,33 +200,42 @@ aws ssm put-parameter --name "/siteguardian/gemini-api-key" \
   --type SecureString --value "YOUR_KEY" --region us-east-1
 
 # 3. Build and push scan engine container
-docker build -t siteguardian-scan-engine lambda/scan-engine/
-aws ecr get-login-password | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
-docker tag siteguardian-scan-engine:latest <account>.dkr.ecr.us-east-1.amazonaws.com/siteguardian-scan-engine:latest
+DOCKER_BUILDKIT=0 docker build --platform linux/amd64 \
+  -t siteguardian-scan-engine lambda/scan-engine/
+aws ecr get-login-password | docker login --username AWS \
+  --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+docker tag siteguardian-scan-engine:latest \
+  <account>.dkr.ecr.us-east-1.amazonaws.com/siteguardian-scan-engine:latest
 docker push <account>.dkr.ecr.us-east-1.amazonaws.com/siteguardian-scan-engine:latest
 
-# 4. Build and push frontend
+# 4. Deploy API Lambda
+cd lambda/api && zip -r /tmp/api-lambda.zip . && \
+  aws lambda update-function-code --function-name siteguardian-api \
+    --zip-file fileb:///tmp/api-lambda.zip
+
+# 5. Build and deploy frontend to S3 + CloudFront
 npx next build
-docker build -f Dockerfile.frontend -t siteguardian-frontend .
-docker tag siteguardian-frontend:latest <account>.dkr.ecr.us-east-1.amazonaws.com/siteguardian-frontend:latest
-docker push <account>.dkr.ecr.us-east-1.amazonaws.com/siteguardian-frontend:latest
+# Extract static HTML from .next/server/app/ and .next/static/
+aws s3 sync out/ s3://siteguardian-frontend-static/
+aws cloudfront create-invalidation --distribution-id <dist-id> --paths "/*"
 ```
 
 ## Cost
 
 | Service | Free Tier | Your Cost |
 |---------|-----------|-----------|
-| **App Runner** | None | ~$5-7/month (only paid service) |
+| **S3** | 5 GB (12 months) | $0 |
+| **CloudFront** | 1 TB transfer + 10M requests/month (permanent) | $0 |
 | **Lambda** | 1M requests + 400K GB-s/month | $0 |
 | **DynamoDB** | 25 GB + 25 WCU/RCU (permanent) | $0 |
 | **API Gateway** | 1M requests/month (12 months) | $0 |
 | **Cognito** | 50K MAUs (permanent) | $0 |
-| **S3** | 5 GB (12 months) | $0 |
-| **ECR** | 500 MB (permanent) | ~$0.24/month |
+| **ECR** | 500 MB (permanent) | ~$0.04/month (1 image, lifecycle policy) |
 | **SSM** | Free for standard params | $0 |
+| **SES** | 62K emails/month (from EC2/Lambda) | $0 |
 | **Gemini API** | Free tier | $0 |
 
-**Total: ~$5-7/month**, driven entirely by App Runner.
+**Total: ~$0.04/month** — effectively free. The only non-zero cost is ECR storing the scan engine container image (~400MB).
 
 ## Terraform Modules
 

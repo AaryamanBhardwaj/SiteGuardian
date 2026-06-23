@@ -108,23 +108,36 @@ export interface ScanNowResult extends ScanResult {
   }[];
 }
 
-const SCAN_API_URL = "/api/scan";
+async function pollForScanResult(scanId: string): Promise<Record<string, unknown>> {
+  const maxWait = 120000;
+  const interval = 3000;
+  const start = Date.now();
+  while (Date.now() - start < maxWait) {
+    const res = await fetch(`${API_URL}/scan/${scanId}`);
+    const data = await res.json();
+    if (data.status === "complete") return data.result;
+    if (data.status === "failed") throw new Error(data.error || "Scan failed");
+    await new Promise((r) => setTimeout(r, interval));
+  }
+  throw new Error("Scan timed out");
+}
 
 export async function triggerScanNow(
   projectId: string,
 ): Promise<ScanNowResult> {
   const project = await getProject(projectId);
 
-  const scanRes = await fetch(SCAN_API_URL, {
+  const startRes = await fetch(`${API_URL}/scan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: project.url }),
   });
-  if (!scanRes.ok) {
-    const err = await scanRes.json().catch(() => ({}));
-    throw new Error(err.error || `Scan failed: ${scanRes.status}`);
+  if (!startRes.ok) {
+    const err = await startRes.json().catch(() => ({}));
+    throw new Error(err.error || `Scan failed: ${startRes.status}`);
   }
-  const scanData = await scanRes.json();
+  const { scanId } = await startRes.json();
+  const scanData = await pollForScanResult(scanId);
 
   return apiFetch(`/projects/${projectId}/scan-now`, {
     method: "POST",
