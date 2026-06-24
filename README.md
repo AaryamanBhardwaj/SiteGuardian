@@ -5,8 +5,6 @@
 
 A full-stack website health monitoring platform that automatically tracks performance, accessibility, and visual regressions over time with AI-powered explanations when things break.
 
-**Live:** [https://d1fkdc03w6csjm.cloudfront.net](https://d1fkdc03w6csjm.cloudfront.net)
-
 ## Features
 
 - **Instant Free Scan** — paste any URL on the landing page, get Lighthouse performance + axe-core accessibility results in seconds (no signup required)
